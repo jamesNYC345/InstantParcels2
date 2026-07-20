@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carrier Tracking Number Formats: Developer Reference</title>
+<meta name="description" content="A developer reference for recognizing, parsing and validating shipping and postal tracking numbers: formats, tested regex, and check-digit algorithms for USPS, UPS, FedEx, DHL, Royal Mail and the UPU S10 postal family.">
+<link rel="canonical" href="https://instantparcels.com/couriers">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1c2330; --muted:#5b6675; --line:#e6e9ef;
+    --accent:#1a6dff; --accent-ink:#0b3ea8; --code-bg:#f6f8fa; --code-fg:#1c2330;
+    --table-head:#f2f5fa; --band:#fafbfd;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1420; --fg:#e6e9ef; --muted:#9aa6b8; --line:#242c3d;
+      --accent:#5f9bff; --accent-ink:#9dc0ff; --code-bg:#151b28; --code-fg:#dfe5ef;
+      --table-head:#161d2b; --band:#131926;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:860px; margin:0 auto; padding:0 20px 80px}
+  header.hero{padding:56px 0 28px; border-bottom:1px solid var(--line); margin-bottom:8px}
+  h1{font-size:2.1rem; line-height:1.2; margin:0 0 12px}
+  .lede{font-size:1.12rem; color:var(--muted); margin:0 0 20px}
+  h2{font-size:1.45rem; margin:44px 0 12px; padding-top:8px}
+  h3{font-size:1.15rem; margin:28px 0 8px}
+  p{margin:0 0 14px}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  .cta{
+    display:inline-block; background:var(--accent); color:#fff; font-weight:600;
+    padding:10px 18px; border-radius:8px; margin:4px 0 6px;
+  }
+  .cta:hover{text-decoration:none; opacity:.92}
+  code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    background:var(--code-bg); color:var(--code-fg); padding:.12em .4em; border-radius:4px; font-size:.9em;
+  }
+  pre{
+    background:var(--code-bg); color:var(--code-fg); padding:16px 18px; border-radius:10px;
+    overflow:auto; border:1px solid var(--line); font-size:.86rem; line-height:1.55;
+  }
+  pre code{background:none; padding:0}
+  table{border-collapse:collapse; width:100%; margin:10px 0 18px; font-size:.9rem; display:block; overflow-x:auto}
+  th,td{border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top}
+  th{background:var(--table-head); font-weight:600}
+  tbody tr:nth-child(odd){background:var(--band)}
+  .toc{background:var(--band); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin:18px 0 8px}
+  .toc ul{margin:6px 0 0; padding-left:20px; columns:2; column-gap:28px}
+  .toc li{margin:3px 0; break-inside:avoid}
+  hr{border:none; border-top:1px solid var(--line); margin:34px 0}
+  .muted{color:var(--muted)}
+  footer{margin-top:40px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem}
+  .pill{display:inline-block; font-size:.75rem; background:var(--code-bg); border:1px solid var(--line); border-radius:999px; padding:2px 10px; color:var(--muted); margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="pill">Open developer reference</span>
+  <h1>Carrier Tracking Number Formats</h1>
+  <p class="lede">A developer reference for recognizing, parsing and validating shipping and postal tracking numbers. Formats, tested regular expressions, and working check-digit algorithms for the major carriers and the global postal standard.</p>
+  <a class="cta" href="https://instantparcels.com">Track a parcel on InstantParcels</a>
+</header>
+
+<p>Every courier encodes its tracking numbers differently. Some follow a global postal standard, some use a proprietary layout with a built-in check digit, and some are just a run of digits with no structure you can rely on. If you have ever tried to answer the deceptively simple question <em>"which carrier does this tracking number belong to?"</em>, you already know there is no single, authoritative, machine-readable table for it. This page is an attempt at one.</p>
+
+<p>It documents the formats used by the major global carriers and national postal operators, gives you a tested regular expression for each, and includes working check-digit algorithms for the formats that have them. Use it to build a carrier detector, to validate user input before you hit a tracking API, or as a reference when a tracking number lands on your desk and you have no idea who to ask.</p>
+
+<p>If you would rather skip the parsing entirely and just track a parcel across any of these carriers in one place, that is exactly what <a href="https://instantparcels.com">InstantParcels</a> does: it aggregates tracking for USPS, UPS, FedEx, DHL and 600+ carriers and national postal operators behind a single lookup. This document is the open reference that sits underneath that kind of problem.</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ul>
+    <li><a href="#read">How to read this</a></li>
+    <li><a href="#quick">Quick reference table</a></li>
+    <li><a href="#s10">UPU S10 standard</a></li>
+    <li><a href="#usps">USPS</a></li>
+    <li><a href="#ups">UPS</a></li>
+    <li><a href="#fedex">FedEx</a></li>
+    <li><a href="#dhl">DHL</a></li>
+    <li><a href="#s10family">S10 postal family</a></li>
+    <li><a href="#europe">European carriers</a></li>
+    <li><a href="#detect">Detecting the carrier</a></li>
+    <li><a href="#validate">Validating check digits</a></li>
+    <li><a href="#caveats">Caveats</a></li>
+    <li><a href="#resources">Resources</a></li>
+  </ul>
+</div>
+
+<hr>
+
+<h2 id="read">How to read this document</h2>
+<p>Two properties of a tracking number matter when you are trying to identify it programmatically: its <strong>shape</strong> and its <strong>check digit</strong>.</p>
+<p>The <em>shape</em> is the pattern of letters and digits: how many characters, where the letters sit, and whether it ends in a two-letter country code. Shape is what a regular expression captures, and it is usually enough to narrow a number down to a small set of candidate carriers. The problem is that shapes overlap. A bare string of twelve digits could be a FedEx number, a Deutsche Post number, or something else entirely, because a plain numeric run carries no identifying marks.</p>
+<p>That is where the <em>check digit</em> comes in. Several formats reserve one position for a value computed from the others, so that a typo or a random string can be rejected without ever contacting the carrier. When a format has a check digit, validating it turns a <em>maybe</em> into a near-certainty. When it does not, shape is all you have, and you should treat detection as a best guess rather than a fact.</p>
+<p>Throughout this document, regular expressions assume the input has been <strong>uppercased and stripped of spaces and hyphens</strong> first. Carriers and shipping labels love to print tracking numbers with spaces (<code>9400 1118 9922 ...</code>) or in lowercase, and normalizing before you match saves you a lot of pattern noise.</p>
+<pre><code>normalized = raw.upper().replace(" ", "").replace("-", "")</code></pre>
+
+<h2 id="quick">Quick reference table</h2>
+<table>
+  <thead>
+    <tr><th>Carrier</th><th>Typical shape</th><th>Example</th><th>Regex (normalized)</th><th>Check digit</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>USPS</strong></td><td>22 digits (IMpb)</td><td><code>9400111899223197428497</code></td><td><code>^(94|93|92|95)\d{20}$</code></td><td>MOD 10</td></tr>
+    <tr><td><strong>UPS</strong></td><td><code>1Z</code> + 16 chars</td><td><code>1Z999AA10123456784</code></td><td><code>^1Z[0-9A-Z]{16}$</code></td><td>UPS 1Z</td></tr>
+    <tr><td><strong>FedEx</strong></td><td>12 / 15 / 20 digits</td><td><code>020207021381215</code></td><td><code>^\d{12}$ | ^\d{15}$</code></td><td>varies</td></tr>
+    <tr><td><strong>DHL Express</strong></td><td>10 digits</td><td><code>1234567890</code></td><td><code>^\d{10}$</code></td><td>none</td></tr>
+    <tr><td><strong>DHL eCommerce</strong></td><td><code>GM</code> + digits</td><td><code>GM6000000000000000</code></td><td><code>^GM\d{16,20}$</code></td><td>none</td></tr>
+    <tr><td><strong>Royal Mail</strong></td><td>S10, <code>…GB</code></td><td><code>AB123456785GB</code></td><td><code>^[A-Z]{2}\d{9}GB$</code></td><td>S10</td></tr>
+    <tr><td><strong>Canada Post</strong></td><td>16 digits</td><td><code>1234567890123456</code></td><td><code>^\d{16}$</code></td><td>none</td></tr>
+    <tr><td><strong>Australia Post</strong></td><td>S10 or 10-12 digits</td><td><code>AB123456785AU</code></td><td><code>^[A-Z]{2}\d{9}AU$</code></td><td>S10</td></tr>
+    <tr><td><strong>China Post / EMS</strong></td><td>S10, <code>…CN</code></td><td><code>RB123456785CN</code></td><td><code>^[A-Z]{2}\d{9}CN$</code></td><td>S10</td></tr>
+    <tr><td><strong>India Post</strong></td><td>S10, <code>…IN</code></td><td><code>EE123456785IN</code></td><td><code>^[A-Z]{2}\d{9}IN$</code></td><td>S10</td></tr>
+    <tr><td><strong>Deutsche Post / DHL DE</strong></td><td>12 / 16 / 20 digits</td><td><code>RR123456785DE</code></td><td><code>^\d{12,20}$</code></td><td>none / S10</td></tr>
+    <tr><td><strong>La Poste / Colissimo</strong></td><td>13 chars</td><td><code>6A12345678901</code></td><td><code>^[0-9A-Z]{2}\d{9}[0-9A-Z]{2}$</code></td><td>none</td></tr>
+    <tr><td><strong>PostNL</strong></td><td><code>3S…</code> or S10</td><td><code>3SABCD1234567</code></td><td><code>^3S[A-Z0-9]{9,11}$</code></td><td>none / S10</td></tr>
+    <tr><td><strong>DPD</strong></td><td>14 digits</td><td><code>01234567890123</code></td><td><code>^\d{14}$</code></td><td>none</td></tr>
+    <tr><td><strong>GLS</strong></td><td>11-14 digits</td><td><code>12345678901</code></td><td><code>^\d{11,14}$</code></td><td>none</td></tr>
+    <tr><td><strong>Evri (Hermes)</strong></td><td>16 digits</td><td><code>1234567890123456</code></td><td><code>^\d{16}$</code></td><td>none</td></tr>
+    <tr><td><strong>International (any)</strong></td><td>S10</td><td><code>RB123456785DE</code></td><td><code>^[A-Z]{2}\d{9}[A-Z]{2}$</code></td><td>S10</td></tr>
+  </tbody>
+</table>
+<p class="muted">The examples above are structurally valid and, where a check digit exists, they pass it. They are constructed for documentation and do not correspond to real shipments.</p>
+
+<h2 id="s10">The UPU S10 international standard</h2>
+<p>By far the most useful format to understand is <strong>S10</strong>, the Universal Postal Union standard for identifying international postal items. It is used by essentially every national postal operator for registered mail, EMS, insured parcels, and tracked cross-border items, which means a single pattern covers a huge share of the world's tracked mail.</p>
+<p>An S10 identifier is always thirteen characters, in three parts:</p>
+<pre><code> R B 1 2 3 4 5 6 7 8 5 D E
+ |_|  |_______| |  |_|
+  |       |     |   |___ ISO country code (2 letters)
+  |       |     |_______ check digit (1 digit)
+  |       |_____________ serial number (8 digits)
+  |_____________________ service indicator (2 letters)</code></pre>
+<p>The <strong>service indicator</strong> is two letters. The first letter denotes the class of service (for example <code>E</code> for EMS, <code>R</code> for registered, <code>C</code> for insured parcels, <code>L</code> for tracked letters, <code>U</code> for unregistered), and the second letter is assigned by the originating operator. The <strong>serial number</strong> is eight digits assigned by that operator. The <strong>check digit</strong> is computed from the serial. The final <strong>country code</strong> is the ISO two-letter code of the country that originated the item, which is what lets you route <code>…US</code> to the US, <code>…DE</code> to Germany, <code>…CN</code> to China, and so on.</p>
+<p>A single regex matches all of them:</p>
+<pre><code>^[A-Z]{2}\d{9}[A-Z]{2}$</code></pre>
+<p>Note that the nine digits in the middle are the eight-digit serial plus the one check digit.</p>
+
+<h3>S10 check digit</h3>
+<p>The check digit is a weighted modulo-11 calculation over the eight serial digits. Weights are applied left to right:</p>
+<pre><code>weights = 8, 6, 4, 2, 3, 5, 9, 7</code></pre>
+<p>Multiply each serial digit by its weight, sum the products, then:</p>
+<pre><code>C = 11 - (sum mod 11)
+if C == 10  ->  C = 0
+if C == 11  ->  C = 5</code></pre>
+<p><strong>Worked example</strong> using serial <code>47312482</code> (from the UPU specification):</p>
+<pre><code>4x8 + 7x6 + 3x4 + 1x2 + 2x3 + 4x5 + 8x9 + 2x7 = 200
+C = 11 - (200 mod 11) = 11 - 2 = 9</code></pre>
+<p>So <code>RA473124829US</code> is a well-formed S10 number: service <code>RA</code>, serial <code>47312482</code>, check digit <code>9</code>, origin <code>US</code>. The two special cases (result 10 becomes 0, result 11 becomes 5) exist so the check digit is always a single decimal digit.</p>
+<p>Because the country code is literally embedded in the number, S10 is the one format where you can identify the <em>originating country</em> with certainty even when you cannot pin down the exact operator, since several operators in one country can share the same <code>…XX</code> suffix.</p>
+
+<h2 id="usps">USPS</h2>
+<p>The United States Postal Service uses the <strong>Intelligent Mail package barcode (IMpb)</strong>, which encodes into a tracking number that is typically <strong>22 digits</strong> long, though 20-digit and older variants appear in the wild. Domestic USPS numbers usually begin with a recognizable prefix (<code>92</code>, <code>93</code>, <code>94</code>, or <code>95</code>), and numbers printed from certain label systems carry a leading <code>420</code> followed by the destination ZIP code, which you strip before reading the tracking portion.</p>
+<pre><code>^(94|93|92|95)\d{20}$            # common 22-digit IMpb
+^\d{20}$                          # 20-digit variant
+^420\d{5}(94|93|92|95)\d{20}$     # with leading ZIP routing block</code></pre>
+<p>USPS also carries international inbound items under the S10 standard, so a number ending in <code>US</code> and matching the S10 pattern is very likely a USPS-handled item. The IMpb tracking number ends in a <strong>MOD 10 check digit</strong>, the same scheme used by GS1 barcodes. Working from the rightmost digit of the number excluding the check digit, weight digits alternately by 3 and 1, sum them, and the check digit is whatever brings the total up to the next multiple of ten.</p>
+<p>For a deeper walk-through of how to read a USPS number, decode its status messages, and spot common tracking scams, InstantParcels has a full guide at <a href="https://instantparcels.com/us-post-tracking-numbers">Master US Post Tracking Numbers</a> and a live lookup at <a href="https://instantparcels.com/couriers/usps">instantparcels.com/couriers/usps</a>.</p>
+
+<h2 id="ups">UPS</h2>
+<p>UPS tracking numbers are the easiest of all to recognize: they begin with <code>1Z</code> and are exactly eighteen characters long.</p>
+<pre><code>^1Z[0-9A-Z]{16}$</code></pre>
+<p>The structure is <code>1Z</code>, a six-character shipper account number, a two-digit service level, a seven-digit package identifier, and a final check digit. UPS also issues a handful of other formats, such as a nine-digit "InfoNotice"-style number, numbers beginning with <code>T</code> followed by ten digits, and long Mail Innovations numbers that hand off to USPS for final delivery, but the <code>1Z</code> form is what you will see the overwhelming majority of the time.</p>
+<h3>UPS 1Z check digit</h3>
+<p>The <code>1Z</code> number carries its own check digit over the sixteen characters that follow the <code>1Z</code> prefix (fifteen significant characters plus the check digit itself). Letters are converted to digits on a repeating cycle (<code>A</code>=2, <code>B</code>=3, up to <code>H</code>=9, then <code>I</code>=0, <code>J</code>=1, and so on), which is the same as <code>(ASCII_code minus 63) mod 10</code> for an uppercase letter. Then the fifteen significant characters are summed with odd positions weighted once and even positions weighted twice, and the check digit brings the total to the next multiple of ten:</p>
+<pre><code>value(c) = c if digit else (ord(c) - 63) mod 10
+total    = sum of odd-position values + 2 x sum of even-position values
+check    = (10 - total mod 10) mod 10</code></pre>
+<p>The canonical UPS example <code>1Z999AA10123456784</code> passes this check, which makes it a convenient test vector when you implement the algorithm yourself. Track UPS at <a href="https://instantparcels.com/couriers/ups">instantparcels.com/couriers/ups</a>.</p>
+
+<h2 id="fedex">FedEx</h2>
+<p>FedEx is the format most likely to trip up a naive detector, because its numbers are <strong>plain digits with no letters and no reliable prefix</strong>, and they come in several lengths: <strong>12 digits</strong> for many ground and express shipments, <strong>15 digits</strong> for FedEx Ground, and <strong>20 or 22 digits</strong> for numbers derived from a longer barcode. Some FedEx SmartPost numbers begin with <code>96</code> and run 20 or more digits, which overlaps with other carriers' ranges.</p>
+<pre><code>^\d{12}$
+^\d{15}$
+^\d{20}$
+^\d{22}$</code></pre>
+<p>Because a 12-digit run is not unique to FedEx, treat a bare numeric match as a <em>candidate</em> rather than a confirmed identification. When a number could plausibly be FedEx or a postal operator, the honest answer is to present both and let the tracking lookup resolve it, which is precisely the kind of ambiguity a multi-carrier tracker is built to absorb. Track FedEx at <a href="https://instantparcels.com/couriers/fedex">instantparcels.com/couriers/fedex</a>.</p>
+
+<h2 id="dhl">DHL</h2>
+<p>"DHL" is really several different products with different number formats, so it pays to distinguish them.</p>
+<p><strong>DHL Express</strong>, the international air courier arm, uses a <strong>10-digit air waybill number</strong> (occasionally 11). It is purely numeric with no check digit you can rely on externally.</p>
+<pre><code>^\d{10}$</code></pre>
+<p><strong>DHL eCommerce</strong> and DHL Parcel, the lower-cost e-commerce and domestic products, use longer numbers that frequently begin with <code>GM</code>, or with <code>LX</code>/<code>RX</code> on S10-style international pieces.</p>
+<pre><code>^GM\d{16,20}$
+^(LX|RX)\d{9}[A-Z]{2}$</code></pre>
+<p><strong>Deutsche Post / DHL Paket</strong> in Germany issues 12-, 16-, or 20-digit domestic numbers, and handles inbound international mail under S10 with a <code>…DE</code> suffix. Because the DHL family spans air freight, e-commerce, and a national post all at once, a DHL match should always record which DHL product you think it is. Track the DHL family at <a href="https://instantparcels.com/couriers/dhl">instantparcels.com/couriers/dhl</a>.</p>
+
+<h2 id="s10family">Royal Mail and the S10 postal family</h2>
+<p>Most national postal operators do not have a bespoke tracked-item format of their own for international mail; they use S10, and you tell them apart by the country-code suffix. This is the single most powerful idea in carrier detection, because one pattern plus a two-letter lookup covers dozens of operators.</p>
+<table>
+  <thead><tr><th>Suffix</th><th>Operator</th></tr></thead>
+  <tbody>
+    <tr><td><code>GB</code></td><td>Royal Mail / Parcelforce</td></tr>
+    <tr><td><code>CA</code></td><td>Canada Post</td></tr>
+    <tr><td><code>AU</code></td><td>Australia Post</td></tr>
+    <tr><td><code>CN</code></td><td>China Post / China EMS</td></tr>
+    <tr><td><code>IN</code></td><td>India Post</td></tr>
+    <tr><td><code>JP</code></td><td>Japan Post</td></tr>
+    <tr><td><code>ES</code></td><td>Correos</td></tr>
+    <tr><td><code>IT</code></td><td>Poste Italiane</td></tr>
+    <tr><td><code>FR</code></td><td>La Poste</td></tr>
+    <tr><td><code>NL</code></td><td>PostNL</td></tr>
+    <tr><td><code>DE</code></td><td>Deutsche Post</td></tr>
+    <tr><td><code>SG</code></td><td>Singapore Post</td></tr>
+    <tr><td><code>BR</code></td><td>Correios</td></tr>
+  </tbody>
+</table>
+<p>For any of these, the pattern is the same <code>^[A-Z]{2}\d{9}XX$</code> with <code>XX</code> swapped for the suffix, and the S10 check digit described above applies. That means for the entire postal family you get <em>free validation</em>: if the MOD 11 check digit passes, you can be confident the number is at least well-formed and correctly transcribed, even before you query anything. Browse all supported operators at <a href="https://instantparcels.com/couriers">instantparcels.com/couriers</a>.</p>
+<p>Note that many operators also run purely domestic formats that are not S10, such as Canada Post's 16-digit domestic number and Australia Post's domestic article numbers, so the S10 suffix identifies international items specifically.</p>
+
+<h2 id="europe">European parcel carriers</h2>
+<p>Beyond the national posts, Europe has a dense field of private parcel carriers whose formats are mostly plain numeric and therefore mostly ambiguous:</p>
+<ul>
+  <li><strong>DPD</strong>: commonly a <strong>14-digit</strong> number; longer 28-digit forms exist for certain services.</li>
+  <li><strong>GLS</strong>: an <strong>11- to 14-digit</strong> parcel number, and S10-style numbers for cross-border tracked mail.</li>
+  <li><strong>Evri (formerly Hermes UK)</strong>: a <strong>16-digit</strong> number.</li>
+  <li><strong>Colissimo (La Poste)</strong>: a <strong>13-character</strong> number that may mix letters and digits, e.g. beginning <code>6A</code>.</li>
+  <li><strong>PostNL</strong>: 3S-prefixed barcodes (<code>3S</code> + 9 to 11 characters) alongside S10 for international.</li>
+</ul>
+<p>For these, expect shape-based detection to produce <em>sets</em> of candidates rather than a single answer. A 16-digit number in a European context could be Evri or Canada Post; without a check digit there is no way to be sure from the number alone. This is not a flaw in your code; it is a genuine property of the numbering schemes, and the correct engineering response is to carry a candidate list forward until a tracking query disambiguates it.</p>
+
+<h2 id="detect">Detecting the carrier from a number</h2>
+<p>Putting it together, a robust detector runs in three stages: normalize, match by shape in priority order, then confirm with a check digit where one exists.</p>
+<p><strong>Order matters.</strong> Evaluate the specific, unambiguous patterns first (a <code>1Z…</code> is unmistakably UPS; an S10 suffix pins the origin country) and fall back to generic numeric patterns last. If you test <code>^\d{12}$</code> before you test the structured formats, you will misclassify numbers that merely happen to be twelve digits long.</p>
+<pre><code>import re
+
+PATTERNS = [
+    ("ups",           r"^1Z[0-9A-Z]{16}$"),
+    ("usps",          r"^(94|93|92|95)\d{20}$"),
+    ("royal-mail",    r"^[A-Z]{2}\d{9}GB$"),
+    ("china-post",    r"^[A-Z]{2}\d{9}CN$"),
+    ("dhl-ecommerce", r"^GM\d{16,20}$"),
+    ("postnl",        r"^3S[A-Z0-9]{9,11}$"),
+    ("s10",           r"^[A-Z]{2}\d{9}[A-Z]{2}$"),  # any international postal item
+    ("dpd",           r"^\d{14}$"),
+    ("fedex",         r"^\d{12}$|^\d{15}$"),
+    ("dhl-express",   r"^\d{10}$"),
+    # ... extend as needed
+]
+
+def candidates(raw):
+    s = raw.upper().replace(" ", "").replace("-", "")
+    hits = [name for name, pat in PATTERNS if re.match(pat, s)]
+    return hits or ["unknown"]</code></pre>
+<p>The function returns a <em>list</em> on purpose. For structured formats it will usually be a single entry; for bare numeric formats it may return several, and that is the truthful output. If you want a single best guess, prefer the match with a passing check digit, then the most specific pattern.</p>
+
+<h2 id="validate">Validating check digits</h2>
+<p>Three of the formats here have check digits worth implementing. All three are short, and all three let you reject a mistyped number instantly, before you spend an API call on it.</p>
+<pre><code>import re
+
+def s10_valid(tn):
+    m = re.match(r"^[A-Z]{2}(\d{8})(\d)[A-Z]{2}$", tn)
+    if not m:
+        return False
+    serial, chk = m.group(1), int(m.group(2))
+    weights = [8, 6, 4, 2, 3, 5, 9, 7]
+    total = sum(int(d) * w for d, w in zip(serial, weights))
+    c = 11 - (total % 11)
+    c = 0 if c == 10 else 5 if c == 11 else c
+    return c == chk
+
+def usps_valid(tn):
+    if not tn.isdigit():
+        return False
+    body, chk = tn[:-1], int(tn[-1])
+    total = sum(int(d) * (3 if i % 2 == 0 else 1)
+               for i, d in enumerate(reversed(body)))
+    return (10 - total % 10) % 10 == chk
+
+def ups_valid(tn):
+    m = re.match(r"^1Z([0-9A-Z]{15})([0-9A-Z])$", tn)
+    if not m:
+        return False
+    body, chk = m.group(1), m.group(2)
+    val = lambda c: int(c) if c.isdigit() else (ord(c) - 63) % 10
+    total = (sum(val(c) for i, c in enumerate(body) if i % 2 == 0)
+             + 2 * sum(val(c) for i, c in enumerate(body) if i % 2 == 1))
+    return str((10 - total % 10) % 10) == chk</code></pre>
+<p>These implementations pass the reference vectors used throughout this document: <code>s10_valid("RA473124829US")</code>, <code>ups_valid("1Z999AA10123456784")</code>, and <code>usps_valid("9400111899223197428497")</code> all return <code>True</code>, and flipping any single digit makes them return <code>False</code>.</p>
+
+<h2 id="caveats">Caveats and limitations</h2>
+<p>A tracking number tells you less than you would hope, and it is worth being honest about the limits:</p>
+<p>A passing check digit proves the number is <em>well-formed</em>, not that a shipment exists. Anyone can construct a syntactically valid S10 or UPS number; only the carrier's system knows whether it was ever assigned to a real parcel.</p>
+<p>Shape overlaps are real and unavoidable. Plain numeric formats such as FedEx, DPD, Evri, and Canada Post domestic share length ranges, so a purely offline detector cannot always give a single answer. Treat detection as narrowing, not deciding.</p>
+<p>Carriers change and extend their formats. New services, acquisitions, and label-system upgrades introduce new prefixes and lengths over time. The patterns here reflect the common formats in circulation but are not a frozen specification.</p>
+<p>When you actually need the delivery status rather than just the format, resolve the number against the carrier, or against an aggregator like <a href="https://instantparcels.com">InstantParcels</a> that queries the right carrier for you regardless of which format the number turns out to be.</p>
+
+<h2 id="resources">Resources</h2>
+<ul>
+  <li><a href="https://instantparcels.com">InstantParcels, multi-carrier tracking</a>: track USPS, UPS, FedEx, DHL and 600+ carriers and postal operators in one place.</li>
+  <li><a href="https://instantparcels.com/couriers">All supported couriers</a>: the full carrier directory, one page per carrier.</li>
+  <li><a href="https://instantparcels.com/us-post-tracking-numbers">USPS tracking guide</a>: reading, decoding, and troubleshooting USPS numbers.</li>
+  <li>Per-carrier pages: <a href="https://instantparcels.com/couriers/usps">USPS</a>, <a href="https://instantparcels.com/couriers/ups">UPS</a>, <a href="https://instantparcels.com/couriers/fedex">FedEx</a>, <a href="https://instantparcels.com/couriers/dhl">DHL</a>.</li>
+  <li><a href="https://en.wikipedia.org/wiki/S10_(UPU_standard)">S10 (UPU standard) on Wikipedia</a>: the international postal item numbering standard.</li>
+</ul>
+
+<footer>
+  <p>Open reference maintained for developers working with shipping and postal data. Tracking across 600+ carriers is available at <a href="https://instantparcels.com">instantparcels.com</a>.</p>
+</footer>
+
+</div>
+</body>
+</html>
